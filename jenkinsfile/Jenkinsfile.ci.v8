@@ -1,0 +1,78 @@
+node('Slave||lightWeight') {
+ 
+	stage ('Disable AppD Monitoring'){
+    build job: 'PROD_AppdAlerts_maintenance', parameters: [[$class: 'StringParameterValue', name: 'APPLICATION_NAME', value: 'ecommerce'],[$class: 'StringParameterValue', name: 'ACTION', value: 'add']] }
+
+	stage ('Disable Solarwinds Monitoring'){
+	build job: 'PROD_Disable_Solarwinds_Alerts'
+	}
+
+    stage ('Pre-deploy: EAR backup'){
+	build job: 'PROD_Pre_Deploy'
+	}
+}
+
+node ('master') {
+ 
+	stage ('Checkout') {
+	 def scmVars = checkout([$class: 'GitSCM', branches: [[name: '${GIT_BRANCH}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'GitLFSPull'],[$class: 'RelativeTargetDirectory', relativeTargetDir: './../../../../../../../../../usr/opt/app/IBM/WebSphere/CommerceServer80/wcbd/source/GIT']], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'tmwdevopsgithub', url: 'https://github.com/MensWearhouse/wcs.git']]]) 
+	 env.GIT_COMMIT = scmVars.GIT_COMMIT
+     echo "${env.GIT_COMMIT}"
+	}
+ 
+	stage ('Build') {
+    sh """ 
+    echo ${GIT_COMMIT}
+    echo ${GIT_BRANCH}
+    /usr/opt/app/IBM/WebSphere/CommerceServer80/wcbd/wcbd_commands/build_gulp.sh TMW "${GIT_BRANCH}_rev_${GIT_COMMIT}"
+    """ 
+	}
+
+	stage ('WCS_Deployment') {
+	sh """ 
+    /usr/opt/app/IBM/WebSphere/CommerceServer80/wcbd/wcbd_commands/prod-deploy-flow.sh prod TMW approved 
+     """ 
+	}
+
+	stage ('Search_Deployment') {
+	sh """ 
+    /usr/opt/app/IBM/WebSphere/CommerceServer80/wcbd/wcbd-deploy/Search-deploy/deploy.sh prod
+    """ 
+	}
+}
+
+node('Slave||lightWeight') {
+	stage 'Parallel jobs'
+
+			parallel first:{
+
+			stage ('Web: Sync Static'){
+			build job: 'PROD_StaticSync_FlowSecure', parameters: [[$class: 'StringParameterValue', name: 'WEBSERVER', value: 'all']] }
+			},
+
+			second:{
+                    stage ('Solr App: Sync / start node'){
+                    build 'PROD_NodeSync_FlowSecure' }
+                    },
+
+			third:{
+					stage ('WCS App: Sync / start node'){
+					build 'PROD_WCS_NodeSync_FlowSecure' }
+					},
+
+			fourth:{
+					stage ('WCS App601: Sync / start node'){
+					build job: 'PROD_App601_NodeSync_FlowSecure', parameters: [[$class: 'StringParameterValue', name: 'RESTORE', value: "${RESTORE}"]] }
+					}
+
+	stage ('Enable AppD Monitoring'){
+	build job: 'PROD_AppdAlerts_maintenance', parameters: [[$class: 'StringParameterValue', name: 'APPLICATION_NAME', value: 'ecommerce'],[$class: 'StringParameterValue', name: 'ACTION', value: 'delete']] }
+
+	stage ('Enable Solarwinds Monitoring'){
+	build job: 'PROD_Enable_Solarwinds_Alerts'
+	}   
+
+	stage ('Clear Data/Akamai cache'){
+	build job: 'PROD_CacheClear'
+	}   
+}

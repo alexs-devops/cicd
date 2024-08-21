@@ -1,0 +1,61 @@
+def gv
+
+pipeline {
+    agent any
+	##environment { 
+	##	SOME_VAR = 'SOME_VALUE' 
+	##	SERVER_CREDENTIALS = credentials('credentials-my') -- "credentials binding + credentials plugin "
+	##} -- def of env var
+	
+	## tools { maven 'Maven' } -- exact name from Jenkins conf
+	
+    parameters {
+        choice(name: 'VERSION', choices: ['1.1.0', '1.2.0', '1.3.0'], description: 'vers to deploy')
+        booleanParam(name: 'executeTests', defaultValue: true, description: '')
+    }
+    stages {
+        stage("init") {
+            steps {
+                script {
+                   gv = load "script.groovy" 
+                }
+            }
+        }
+        stage("build") {
+            steps {
+                script {
+                    gv.buildApp()
+                }
+            }
+        }
+        stage("test") {
+            when {  # or when { expression { BRANCH_NAME == "dev" } }
+                expression {
+                    params.executeTests
+                }
+            }
+            steps {
+                script {
+                    gv.testApp()
+                }
+            }
+        }
+        stage("deploy") {
+            steps {
+                script {
+                    gv.deployApp()
+                }
+            }
+        }
+		
+		post {
+			always|failure|success {
+			withCredentials([
+				usernamePassword(credetials: 'server-credentials', usernameVariable: USER, passwordVariable: PASS) ])
+				{
+					sh " script.sh ${USER} ${PASS}
+				}
+			}
+		}
+    }   
+}
