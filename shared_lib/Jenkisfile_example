@@ -1,0 +1,129 @@
+@Library('my-shared-library') _
+
+pipeline {
+    agent none
+
+   options {
+        // Keep only the last 10 builds
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    parameters {
+	    gitParameter(
+            name: 'GIT_BRANCH',
+            branchFilter: '.*',
+            type: 'PT_BRANCH',
+            defaultValue: 'develop',
+            description: 'Select the branch'
+        )
+        string(name: 'gradleVersion', defaultValue: '7.6.1', description: 'Optional: Specify the Gradle version to install')
+    }
+
+    stages {
+        stage('Setup Gradle') {
+            agent { label "build"}
+            steps {
+                // Install Gradle using the shared library and the job parameter
+                installGradle(gradleVersion: params.gradleVersion)
+            }
+        }
+	
+        stage('Checkout') {
+            agent { label "build" }
+            steps {
+                def scmVars = checkout([$class: 'GitSCM', 
+				                        branches: [[name: 'params.${GIT_BRANCH}']],
+										doGenerateSubmoduleConfigurations: false,
+										extensions: [[$class: 'GitLFSPull'],
+										             [$class: 'RelativeTargetDirectory', relativeTargetDir: '/path/example']],
+										submoduleCfg: [],
+										userRemoteConfigs: [[credentialsId: 'exampleCredId', url: 'https://example.git.url']]]) 
+	            env.GIT_COMMIT = scmVars.GIT_COMMIT
+                echo "${env.GIT_COMMIT}"
+            }
+        }
+
+        stage('Start install?') {
+            options { 
+                timeout(time: 2, unit: "MINUTES") 
+                }
+            steps {
+                input(message: "Approve?"; ok: "Yes")
+            }
+        }
+
+        stage('Build') {
+            agent { label "build"}
+            steps {
+                sh './gradlew clean build'
+            }
+        }
+
+        stage('JaCoCo') {
+            agent { label "build"}
+            steps {
+                jacocoGradle()
+            }
+        }
+
+        stage('Run SonarQube') {
+            agent { label "build"}
+            steps {
+                script {
+                    def projectKey = params.GIT_BRANCH
+                    sonarGradle(projectKey)
+                }
+            }
+	    }
+
+        stage('PMD') {
+            agent { label "build"}
+            steps {
+                pmdGradle()
+            }
+        }
+
+        stage('Archive Reports') {
+            agent { label "build"}
+            steps {
+                archiveArtifacts artifacts: '**/build/reports/**'
+            }
+        }
+    }
+	
+	post {
+        always {
+            script {
+                // Clear workspace directory except for the reports directory
+                def reportsDir = 'build/reports'
+                
+                // Delete all files except for the reports directory
+                sh """
+                find . -mindepth 1 -maxdepth 1 ! -name '${reportsDir}' -exec rm -rf {} +
+                """
+            }
+            
+            // Send reports via email
+            emailext(
+                subject: "Build Report - ${currentBuild.fullDisplayName}",
+                body: """
+                    <p>Hello,</p>
+                    <p>The build report is attached.</p>
+                    <p>Build Details:</p>
+                    <p>Job Name: ${env.JOB_NAME}</p>
+                    <p>Build Number: ${env.BUILD_NUMBER}</p>
+                    <p>Status: ${currentBuild.currentResult}</p>
+                """,
+                to: 'recipient@example.com',
+                attachmentsPattern: '**/build/reports/**',
+                mimeType: 'text/html'
+            )
+        }
+        success {
+            echo 'Build succeeded!'
+        }
+        failure {
+            echo 'Build failed.'
+        }
+	}
+}

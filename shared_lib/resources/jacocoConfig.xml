@@ -1,0 +1,11 @@
+<configuration>
+    <report>
+        <title>JaCoCo Report</title>
+        <outputDirectory>${WORKSPACE}/jacoco</outputDirectory>
+    </report>
+    <rules>
+        <rule name="Code Coverage">
+            <minimumLineCoverage>80</minimumLineCoverage>
+        </rule>
+    </rules>
+</configuration>

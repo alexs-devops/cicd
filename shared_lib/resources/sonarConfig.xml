@@ -1,0 +1,11 @@
+<sonar>
+    <properties>
+        <sonar.projectKey>my-project-key</sonar.projectKey>
+        <sonar.projectName>My Project</sonar.projectName>
+        <sonar.projectVersion>1.0</sonar.projectVersion>
+        <sonar.sources>src</sonar.sources>
+        <sonar.java.binaries>target/classes</sonar.java.binaries>
+        <sonar.junit.reportPaths>target/test-classes</sonar.junit.reportPaths>
+        <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+    </properties>
+</sonar>

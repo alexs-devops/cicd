@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<pmd version="6.40.0">
+    <rulesets>
+        <ruleset name="Basic"
+                 xmlns="http://pmd.sf.net/ruleset/2.0.0"
+                 xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://pmd.sf.net/ruleset/2.0.0
+                                     http://pmd.sf.net/ruleset_2_0_0.xsd">
+            <description>Basic rules for Java code.</description>
+            <rule ref="rulesets/java/basic.xml"/>
+        </ruleset>
+        <ruleset name="Design"
+                 xmlns="http://pmd.sf.net/ruleset/2.0.0"
+                 xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://pmd.sf.net/ruleset/2.0.0
+                                     http://pmd.sf.net/ruleset_2_0_0.xsd">
+            <description>Design rules for Java code.</description>
+            <rule ref="rulesets/java/design.xml"/>
+        </ruleset>
+        <ruleset name="Error Prone"
+                 xmlns="http://pmd.sf.net/ruleset/2.0.0"
+                 xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://pmd.sf.net/ruleset/2.0.0
+                                     http://pmd.sf.net/ruleset_2_0_0.xsd">
+            <description>Error-prone rules for Java code.</description>
+            <rule ref="rulesets/java/errorprone.xml"/>
+        </ruleset>
+    </rulesets>
+</pmd>

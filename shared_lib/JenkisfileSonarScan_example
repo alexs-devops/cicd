@@ -1,0 +1,41 @@
+@Library('my-shared-library') _
+
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'branchList', defaultValue: 'master,dev,release', description: 'Comma-separated list of branches to run SonarQube analysis')
+    }
+
+    stages {
+        stage('Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    // Split the branches parameter into a list
+                    def branches = params.branchList.split(',')
+
+                    // Loop through each branch and run SonarQube analysis
+                    for (branch in branches) {
+                        // Switch to the branch
+                        echo "Processing branch: ${branch}"
+                        
+                        // Check if the branch exists in the SCM
+                        if (sh(script: "git branch --list ${branch}", returnStatus: true) == 0) {
+                            sh "git checkout ${branch}"
+                            def projectKey = branch.trim() // Derive the project key from the branch name
+                            sonar(projectKey) // Call the sonar.groovy script with the project key
+                        } else {
+                            echo "Branch ${branch} does not exist in SCM."
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
